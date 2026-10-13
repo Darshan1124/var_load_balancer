@@ -1,0 +1,34 @@
+# Go
+*.exe
+*.test
+*.out
+vendor/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Models and data
+*.gguf
+*.pt
+*.pkl
+data/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# Env and secrets
+.env
+*.pem
+*.key
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
