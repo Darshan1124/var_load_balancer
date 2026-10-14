@@ -1,0 +1,59 @@
+# Static Envoy config for Phase 1.
+# Request flow:  Listener -> Route -> Cluster -> Endpoint
+
+# Admin interface: stats, config dump and cluster health.
+# Bound to 0.0.0.0 so Docker can publish it; compose only exposes it on 127.0.0.1.
+admin:
+  address:
+    socket_address: { address: 0.0.0.0, port_value: 9901 }
+
+static_resources:
+  # LISTENER: a port Envoy accepts traffic on.
+  listeners:
+    - name: main_listener
+      address:
+        socket_address: { address: 0.0.0.0, port_value: 8080 }
+      filter_chains:
+        - filters:
+            # http_connection_manager turns raw connections into HTTP requests
+            # and applies the routing rules below.
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ingress_http
+                access_log:
+                  - name: envoy.access_loggers.stdout
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
+                # ROUTE: match requests and pick a cluster.
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: all_hosts
+                      domains: ["*"]
+                      routes:
+                        - match: { prefix: "/" }
+                          route: { cluster: backends }
+                http_filters:
+                  # The router filter does the actual forwarding. It must be last.
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+  # CLUSTER: a named group of backends and how to balance across them.
+  clusters:
+    - name: backends
+      type: STRICT_DNS          # resolve the endpoint hostnames via Docker's DNS
+      connect_timeout: 1s
+      lb_policy: ROUND_ROBIN    # alternate between endpoints
+      # ENDPOINTS: the individual backends in this cluster.
+      load_assignment:
+        cluster_name: backends
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address: { address: backend-1, port_value: 8080 }
+              - endpoint:
+                  address:
+                    socket_address: { address: backend-2, port_value: 8080 }
